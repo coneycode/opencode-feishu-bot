@@ -26,7 +26,32 @@ Feishu User receives reply
 - Sessions expire after 2 hours of inactivity (auto-cleanup)
 - Replies longer than 4000 characters are automatically split into multiple messages
 
-### Installation
+---
+
+### Quick Install (Recommended)
+
+Run this single command in your terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/coneycode/opencode-feishu-bot/main/install.sh | bash
+```
+
+The installer will:
+1. Download the plugin to `~/.config/opencode/plugins/feishu-bot.ts`
+2. Add `@larksuiteoapi/node-sdk` to `~/.config/opencode/package.json`
+3. Run `bun install` to install dependencies
+4. Prompt you for your Feishu **App ID** (saved to `.env`) and **App Secret** (saved to macOS Keychain)
+
+After installation, start opencode and you should see:
+```
+[feishu-bot] 飞书机器人已启动（长连接模式），appId=cli_xxx***
+```
+
+> **Requirements**: `bun` and `curl` must be installed. macOS is required for Keychain-based secret storage.
+
+---
+
+### Manual Installation
 
 1. **Copy the plugin file** to your opencode plugins directory:
 
@@ -144,6 +169,32 @@ opencode AI (Sisyphus)
 - session 闲置 2 小时后自动回收，下次对话开新 session
 - AI 回复超过 4000 字时自动分段发送
 
+---
+
+### 一键安装（推荐）
+
+在终端执行以下命令：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/coneycode/opencode-feishu-bot/main/install.sh | bash
+```
+
+安装程序会自动完成：
+1. 下载插件文件到 `~/.config/opencode/plugins/feishu-bot.ts`
+2. 将 `@larksuiteoapi/node-sdk` 添加到 `~/.config/opencode/package.json`
+3. 执行 `bun install` 安装依赖
+4. 交互式询问你的 **App ID**（保存到 `.env`）和 **App Secret**（保存到 macOS 钥匙串）
+
+安装完成后，启动 opencode 即可看到：
+```
+[feishu-bot] 飞书机器人已启动（长连接模式），appId=cli_xxx***
+```
+
+> **前置条件**：需要已安装 `bun` 和 `curl`；App Secret 安全存储依赖 macOS 钥匙串。
+
+---
+
+### 手动安装
 ### 安装
 
 1. **复制插件文件** 到 opencode 插件目录：
