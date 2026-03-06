@@ -247,6 +247,10 @@ export const FeishuBotPlugin: Plugin = async ({ client }) => {
         path: { id: sessionId },
         body: {
           parts: [{ type: "text", text: userText }],
+          model: {
+            providerID: "Mify-Anthropic",
+            modelID: "ppio/pa/claude-sonnet-4-6",
+          },
         },
       });
 
@@ -258,7 +262,7 @@ export const FeishuBotPlugin: Plugin = async ({ client }) => {
         await replyToFeishu(chatId, "（AI 没有返回文字回复）");
       }
     } catch (err: any) {
-      const errorMsg = err?.message ?? String(err);
+      const errorMsg = err?.data?.message ?? err?.message ?? String(err);
       await client.app.log({
         body: {
           service: "feishu-bot",
