@@ -1,6 +1,9 @@
-# opencode-feishu-bot
+# opencode-chat-channel
 
-An [opencode](https://opencode.ai) plugin that connects your Feishu (Lark) bot to opencode via **WebSocket long connection** — no public IP required.
+An [opencode](https://opencode.ai) plugin that connects instant messaging bots to opencode AI via a unified multi-channel architecture.
+
+**Currently supported**: Feishu (Lark) via WebSocket long connection — no public IP required.  
+**Skeleton ready**: WeCom (企业微信) — see `src/channels/wecom/index.ts`.
 
 [中文说明](#中文说明) · [English](#english)
 
@@ -11,67 +14,46 @@ An [opencode](https://opencode.ai) plugin that connects your Feishu (Lark) bot t
 ### How It Works
 
 ```
-Feishu User sends message
-    ↓ WebSocket long connection
-Feishu Open Platform
-    ↓ @larksuiteoapi/node-sdk WSClient
-feishu-bot plugin (this repo)
+User sends message (Feishu / WeCom / ...)
+    ↓ Channel adapter (WebSocket / HTTP callback / ...)
+chat-channel plugin (this repo)
     ↓ client.session.prompt()
 opencode AI (Sisyphus)
     ↓ text reply
-Feishu User receives reply
+User receives reply
 ```
 
-- Each Feishu user (`open_id`) gets their own persistent opencode session
+- Each user (`open_id` / user ID) gets their own persistent opencode session
 - Sessions expire after 2 hours of inactivity (auto-cleanup)
-- Replies longer than 4000 characters are automatically split into multiple messages
+- Replies longer than 4000 characters are automatically split
 
 ---
 
-### Quick Install (Recommended)
+### Installation
 
-Run this single command in your terminal:
+Since this is an **opencode plugin**, opencode handles installation automatically via npm. No scripts needed.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/coneycode/opencode-feishu-bot/main/install.sh | bash
-```
+#### Step 1: Add to `opencode.json`
 
-The installer will:
-1. Download the plugin to `~/.config/opencode/plugins/feishu-bot.ts`
-2. Add `@larksuiteoapi/node-sdk` to `~/.config/opencode/package.json`
-3. Run `bun install` to install dependencies
-4. Prompt you for your Feishu **App ID** (saved to `.env`) and **App Secret** (saved to macOS Keychain)
-
-After installation, start opencode and you should see:
-```
-[feishu-bot] 飞书机器人已启动（长连接模式），appId=cli_xxx***
-```
-
-> **Requirements**: `bun` and `curl` must be installed. macOS is required for Keychain-based secret storage.
-
----
-
-### Manual Installation
-
-1. **Copy the plugin file** to your opencode plugins directory:
-
-```bash
-cp src/index.ts ~/.config/opencode/plugins/feishu-bot.ts
-```
-
-2. **Add the dependency** to `~/.config/opencode/package.json`:
+Edit `~/.config/opencode/opencode.json` and add the plugin:
 
 ```json
 {
-  "dependencies": {
-    "@larksuiteoapi/node-sdk": "^1.37.0"
-  }
+  "plugin": [
+    "opencode-chat-channel@latest"
+  ]
 }
 ```
 
-Then run `bun install` in `~/.config/opencode/`.
+opencode will pull and install the package automatically on next startup.
 
-### Configuration
+#### Step 2: Configure the channel(s) you want to use
+
+See the [Feishu Configuration](#feishu-configuration) section below.
+
+---
+
+### Feishu Configuration
 
 #### Step 1: Create a Feishu Self-Built App
 
@@ -98,16 +80,24 @@ FEISHU_APP_ID=cli_xxxxxxxxxxxxxxxx
 # OPENCODE_BASE_URL=http://localhost:4321
 ```
 
-**App Secret** (sensitive, store in macOS Keychain):
+**App Secret** — choose the method for your platform:
+
+| Platform | Method | Command |
+|----------|--------|---------|
+| macOS | Keychain (recommended) | `security add-generic-password -a chat-channel -s opencode-chat-channel -w <secret> -U` |
+| Windows / Linux | `.env` file | Add `FEISHU_APP_SECRET=<secret>` to `~/.config/opencode/.env` |
+| All platforms | Environment variable | Set `FEISHU_APP_SECRET=<secret>` before launching opencode |
+
+> **Priority**: environment variable → macOS Keychain → `.env` file value (already loaded as env var).
+> The plugin tries each in order and uses the first one found.
+
+> ⚠️ If you store the secret in `.env`, ensure the file has restricted permissions:
+> `chmod 600 ~/.config/opencode/.env`
+
+**macOS Keychain** (verify):
 
 ```bash
-security add-generic-password -a feishu-bot -s opencode-feishu-bot -w <your-app-secret> -U
-```
-
-Verify:
-
-```bash
-security find-generic-password -a feishu-bot -s opencode-feishu-bot -w
+security find-generic-password -a chat-channel -s opencode-chat-channel -w
 ```
 
 #### Step 3: Start opencode
@@ -119,18 +109,46 @@ opencode
 You should see in the logs:
 
 ```
-[feishu-bot] 飞书机器人已启动（长连接模式），appId=cli_xxx***
+[feishu] 飞书机器人已启动（长连接模式），appId=cli_xxx***
+chat-channel 已启动，活跃渠道: feishu
 ```
 
-### File Structure
+---
 
+### Adding a New Channel
+
+The plugin uses a `ChatChannel` interface. To add a new channel:
+
+1. Create `src/channels/<name>/index.ts` implementing `ChatChannel` and exporting a `ChannelFactory`
+2. Register the factory in `src/index.ts` → `CHANNEL_FACTORIES` array
+
+```typescript
+// src/channels/myapp/index.ts
+import type { ChatChannel, ChannelFactory } from "../../types.js";
+
+class MyAppChannel implements ChatChannel {
+  readonly name = "myapp";
+  async start(onMessage) { /* connect, call onMessage on each msg */ }
+  async send(target, text) { /* send reply */ }
+}
+
+export const myappChannelFactory: ChannelFactory = async (client) => {
+  // read credentials, return null if not configured
+  return new MyAppChannel(...);
+};
 ```
-~/.config/opencode/
-├── plugins/
-│   └── feishu-bot.ts    # plugin file (copied from src/index.ts)
-├── package.json          # dependencies (add @larksuiteoapi/node-sdk)
-└── .env                  # FEISHU_APP_ID (App Secret in Keychain)
+
+```typescript
+// src/index.ts — add to CHANNEL_FACTORIES
+import { myappChannelFactory } from "./channels/myapp/index.js";
+
+const CHANNEL_FACTORIES: ChannelFactory[] = [
+  feishuChannelFactory,
+  myappChannelFactory, // ← add here
+];
 ```
+
+---
 
 ### FAQ
 
@@ -154,68 +172,46 @@ You should see in the logs:
 ### 工作原理
 
 ```
-飞书用户发消息
-    ↓ WebSocket 长连接
-飞书开放平台
-    ↓ @larksuiteoapi/node-sdk WSClient
-feishu-bot 插件（本仓库）
+用户发消息（飞书 / 企业微信 / ...）
+    ↓ 渠道适配器（WebSocket 长连接 / HTTP 回调 / ...）
+chat-channel 插件（本仓库）
     ↓ client.session.prompt()
 opencode AI (Sisyphus)
     ↓ 回复文本
-飞书用户
+用户收到回复
 ```
 
-- 每个飞书用户（`open_id`）独享一个 opencode session，**对话历史持久保留**
+- 每个用户独享一个 opencode session，**对话历史持久保留**
 - session 闲置 2 小时后自动回收，下次对话开新 session
 - AI 回复超过 4000 字时自动分段发送
 
 ---
 
-### 一键安装（推荐）
-
-在终端执行以下命令：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/coneycode/opencode-feishu-bot/main/install.sh | bash
-```
-
-安装程序会自动完成：
-1. 下载插件文件到 `~/.config/opencode/plugins/feishu-bot.ts`
-2. 将 `@larksuiteoapi/node-sdk` 添加到 `~/.config/opencode/package.json`
-3. 执行 `bun install` 安装依赖
-4. 交互式询问你的 **App ID**（保存到 `.env`）和 **App Secret**（保存到 macOS 钥匙串）
-
-安装完成后，启动 opencode 即可看到：
-```
-[feishu-bot] 飞书机器人已启动（长连接模式），appId=cli_xxx***
-```
-
-> **前置条件**：需要已安装 `bun` 和 `curl`；App Secret 安全存储依赖 macOS 钥匙串。
-
----
-
-### 手动安装
 ### 安装
 
-1. **复制插件文件** 到 opencode 插件目录：
+本项目是 **opencode 插件**，opencode 通过 npm 自动管理安装，无需额外脚本。
 
-```bash
-cp src/index.ts ~/.config/opencode/plugins/feishu-bot.ts
-```
+#### 第一步：添加到 `opencode.json`
 
-2. **添加依赖** 到 `~/.config/opencode/package.json`：
+编辑 `~/.config/opencode/opencode.json`，在 `plugin` 数组中添加：
 
 ```json
 {
-  "dependencies": {
-    "@larksuiteoapi/node-sdk": "^1.37.0"
-  }
+  "plugin": [
+    "opencode-chat-channel@latest"
+  ]
 }
 ```
 
-然后在 `~/.config/opencode/` 目录运行 `bun install`。
+下次启动 opencode 时会自动拉取并安装。
 
-### 配置步骤
+#### 第二步：配置需要使用的渠道
+
+参见下方各渠道的配置说明。
+
+---
+
+### 飞书配置
 
 #### 第一步：创建飞书自建应用
 
@@ -238,20 +234,28 @@ cp src/index.ts ~/.config/opencode/plugins/feishu-bot.ts
 # ~/.config/opencode/.env
 FEISHU_APP_ID=cli_xxxxxxxxxxxxxxxx
 
-# 可选：自定义 opencode API 地址（默认： http://localhost:4321）
+# 可选：自定义 opencode API 地址（默认：http://localhost:4321）
 # OPENCODE_BASE_URL=http://localhost:4321
 ```
 
-**App Secret**（敏感，存 macOS Keychain，不落盘明文）：
+**App Secret**—按使用的平台选择存储方式：
+
+| 平台 | 方式 | 命令 |
+|------|------|------|
+| macOS | 钒匙串（推荐，不落盘明文） | `security add-generic-password -a chat-channel -s opencode-chat-channel -w <secret> -U` |
+| Windows / Linux | 写入 `.env` 文件 | 在 `~/.config/opencode/.env` 中添加 `FEISHU_APP_SECRET=<secret>` |
+| 所有平台 | 环境变量 | 启动 opencode 前设置 `FEISHU_APP_SECRET=<secret>` |
+
+> **读取优先级**：环境变量 → macOS 钒匙串 → `.env` 文件（已在插件启动时自动读入环境变量）。
+> 插件依次尝试，找到第一个有效值即停止。
+
+> ⚠️ 如果将 Secret 写入 `.env`，建议限制文件权限：
+> `chmod 600 ~/.config/opencode/.env`
+
+**macOS 钒匙串**验证：
 
 ```bash
-security add-generic-password -a feishu-bot -s opencode-feishu-bot -w <你的AppSecret> -U
-```
-
-验证写入是否成功：
-
-```bash
-security find-generic-password -a feishu-bot -s opencode-feishu-bot -w
+security find-generic-password -a chat-channel -s opencode-chat-channel -w
 ```
 
 #### 第三步：启动 opencode
@@ -263,18 +267,38 @@ opencode
 启动后日志中会看到：
 
 ```
-[feishu-bot] 飞书机器人已启动（长连接模式），appId=cli_xxx***
+[feishu] 飞书机器人已启动（长连接模式），appId=cli_xxx***
+chat-channel 已启动，活跃渠道: feishu
 ```
 
-### 文件位置
+---
+
+### 接入新渠道
+
+插件基于 `ChatChannel` 接口设计，新增渠道步骤：
+
+1. 新建 `src/channels/<渠道名>/index.ts`，实现 `ChatChannel` 接口并导出 `ChannelFactory`
+2. 在 `src/index.ts` 的 `CHANNEL_FACTORIES` 数组中注册工厂函数
+
+参见 `src/channels/wecom/index.ts` — 企业微信骨架，含详细的实现 TODO 注释。
+
+---
+
+### 项目结构
 
 ```
-~/.config/opencode/
-├── plugins/
-│   └── feishu-bot.ts    # 插件主文件（从 src/index.ts 复制）
-├── package.json          # 依赖（含 @larksuiteoapi/node-sdk）
-└── .env                  # 环境变量（FEISHU_APP_ID；App Secret 存 Keychain）
+src/
+├── index.ts                    # 插件入口，注册所有渠道
+├── types.ts                    # ChatChannel 接口 & 公共类型
+├── session-manager.ts          # opencode session 管理 & 工具函数
+└── channels/
+    ├── feishu/
+    │   └── index.ts            # 飞书渠道实现（已完成）
+    └── wecom/
+        └── index.ts            # 企业微信渠道骨架（待实现）
 ```
+
+---
 
 ### 常见问题
 
