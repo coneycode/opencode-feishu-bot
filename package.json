@@ -1,16 +1,39 @@
 {
-  "name": "opencode-feishu-bot",
-  "version": "1.0.0",
-  "description": "opencode plugin — Feishu (Lark) bot via WebSocket long connection",
-  "main": "src/index.ts",
+  "name": "opencode-chat-channel",
+  "version": "1.1.0",
+  "description": "opencode plugin — multi-channel bot (Feishu/Lark, WeCom) with extensible ChatChannel interface",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "bun run build:clean && bun run build:js && bun run build:types",
+    "build:clean": "rm -rf dist",
+    "build:js": "bun build ./src/index.ts --outdir ./dist --target node --format esm --packages external",
+    "build:types": "bunx tsc -p tsconfig.build.json",
+    "prepublishOnly": "bun run build",
+    "prepack": "bun run build"
+  },
   "keywords": [
     "opencode",
     "opencode-plugin",
     "feishu",
     "lark",
+    "wecom",
+    "wechat",
     "bot",
-    "websocket"
+    "websocket",
+    "multi-channel"
   ],
   "author": "",
   "license": "MIT",
@@ -21,6 +44,10 @@
     "@opencode-ai/plugin": "*"
   },
   "devDependencies": {
+    "@opencode-ai/plugin": "*",
     "typescript": "^5.0.0"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
   }
 }
