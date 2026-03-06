@@ -192,7 +192,7 @@ main() {
 
     if [[ -n "$existing_secret" ]]; then
       echo ""
-      echo -e "  钥匙串中已存有 App Secret（service=$KEYCHAIN_SERVICE）"
+      echo -e "  钥匙串中已存有 App Secret（service=${KEYCHAIN_SERVICE}）"
       read -rp "  是否更新？[y/N] " update_secret
       if [[ "${update_secret:-N}" =~ ^[Yy]$ ]]; then
         existing_secret=""
