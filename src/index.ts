@@ -108,6 +108,11 @@ export const FeishuBotPlugin: Plugin = async ({ client }) => {
   // 用户 session 映射：feishu open_id → opencode session
   const userSessions = new Map<string, SessionMeta>();
 
+  // 已处理过的消息 ID（去重，防止飞书重复投递）
+  const processedMessages = new Set<string>();
+  // 避免 Set 无限增长，超过 500 条时清空旧的
+  const MAX_PROCESSED = 500;
+
   // ── 获取或创建 opencode session ──────────────────────────────────────────
 
   async function getOrCreateSession(openId: string): Promise<string> {
@@ -214,6 +219,22 @@ export const FeishuBotPlugin: Plugin = async ({ client }) => {
       });
       return;
     }
+
+    // 去重：飞书 WebSocket 可能重复投递同一条消息
+    const msgId: string = message.message_id;
+    if (processedMessages.has(msgId)) {
+      await client.app.log({
+        body: {
+          service: "feishu-bot",
+          level: "info",
+          message: `重复消息已忽略: ${msgId}`,
+        },
+      });
+      return;
+    }
+    if (processedMessages.size >= MAX_PROCESSED) processedMessages.clear();
+    processedMessages.add(msgId);
+
 
     // 解析消息内容
     let userText: string;
