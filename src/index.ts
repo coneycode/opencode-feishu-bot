@@ -14,7 +14,7 @@
 
 import type { Plugin } from "@opencode-ai/plugin";
 import * as Lark from "@larksuiteoapi/node-sdk";
-import { execFileSync } from "child_process";
+import { execFileSync, execSync } from "child_process";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -35,7 +35,7 @@ function loadDotEnv(envPath: string): void {
       const key = trimmed.slice(0, eqIdx).trim();
       const value = trimmed.slice(eqIdx + 1).trim();
       // 不覆盖已有的环境变量（优先使用外部注入的）
-      if (!(key in process.env)) {
+      if (!process.env[key]) {
         process.env[key] = value;
       }
     }
@@ -55,13 +55,15 @@ interface SessionMeta {
 
 /** session 闲置超过此时间（ms）后自动清理，下次对话从新 session 开始 */
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 小时
+/** opencode API 地址（本地默认）*/
+const OPENCODE_BASE_URL = process.env["OPENCODE_BASE_URL"] ?? "http://localhost:4321";
 
 // ─── 插件主体 ─────────────────────────────────────────────────────────────────
 
 export const FeishuBotPlugin: Plugin = async ({ client }) => {
   // 先加载 .env 文件（opencode 不会自动注入，需插件自行读取）
   const configDir = join(
-    process.env["HOME"] ?? "/Users/" + (process.env["USER"] ?? ""),
+    process.env["HOME"] ?? "/Users/" + (process.env["USER"] ?? "unknown"),
     ".config", "opencode"
   );
   loadDotEnv(join(configDir, ".env"));
@@ -310,4 +312,3 @@ export const FeishuBotPlugin: Plugin = async ({ client }) => {
   };
 };
 
-export default FeishuBotPlugin;
