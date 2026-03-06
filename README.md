@@ -68,6 +68,9 @@ Then run `bun install` in `~/.config/opencode/`.
 ```bash
 # ~/.config/opencode/.env
 FEISHU_APP_ID=cli_xxxxxxxxxxxxxxxx
+
+# Optional: custom opencode API URL (default: http://localhost:4321)
+# OPENCODE_BASE_URL=http://localhost:4321
 ```
 
 **App Secret** (sensitive, store in macOS Keychain):
@@ -183,6 +186,9 @@ cp src/index.ts ~/.config/opencode/plugins/feishu-bot.ts
 ```bash
 # ~/.config/opencode/.env
 FEISHU_APP_ID=cli_xxxxxxxxxxxxxxxx
+
+# 可选：自定义 opencode API 地址（默认： http://localhost:4321）
+# OPENCODE_BASE_URL=http://localhost:4321
 ```
 
 **App Secret**（敏感，存 macOS Keychain，不落盘明文）：
