@@ -236,6 +236,8 @@ export const ChatChannelPlugin: Plugin = async ({ client }) => {
 
 export default ChatChannelPlugin;
 
-// 导出类型和工具，供自定义渠道实现使用
+// 导出类型，供自定义渠道实现使用
+// 注意：工具函数 (extractResponseText, loadDotEnv) 不在此导出，
+// 以避免 opencode 插件加载器将其误当作 Plugin 函数执行。
+// 如需使用这些工具函数，请直接从 "opencode-chat-channel/session-manager" 导入。
 export type { ChatChannel, ChannelFactory, ChannelName, IncomingMessage, PluginClient } from "./types.js";
-export { extractResponseText, loadDotEnv } from "./session-manager.js";
