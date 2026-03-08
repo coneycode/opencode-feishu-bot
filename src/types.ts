@@ -32,6 +32,8 @@ export interface IncomingMessage {
  *   - name: 渠道标识符（用于日志、配置 key）
  *   - start(): 启动监听，收到消息时调用 onMessage 回调
  *   - send(): 向指定 target 发送文本回复
+ *   - sendThinkingCard(): 发送占位卡片，返回可更新的 ID（可选）
+ *   - updateThinkingCard(): 更新占位卡片内容（可选）
  *   - stop(): 优雅关闭（可选）
  */
 export interface ChatChannel {
@@ -49,6 +51,20 @@ export interface ChatChannel {
    * replyTarget 为 IncomingMessage.replyTarget。
    */
   send(replyTarget: string, text: string): Promise<void>;
+
+  /**
+   * 发送"正在思考"占位卡片，返回可用于后续更新的占位消息 ID。
+   * 返回 null 表示该渠道不支持更新式占位（降级为无占位）。
+   * 可选——未实现的渠道会跳过思考展示。
+   */
+  sendThinkingCard?(replyTarget: string): Promise<string | null>;
+
+  /**
+   * 更新占位消息的内容。
+   * @param placeholderId  sendThinkingCard 返回的 ID
+   * @param statusText     新状态文本
+   */
+  updateThinkingCard?(placeholderId: string, statusText: string): Promise<void>;
 
   /** 优雅停止渠道（可选）。 */
   stop?(): Promise<void>;

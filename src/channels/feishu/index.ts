@@ -127,19 +127,56 @@ class FeishuChannel implements ChatChannel {
     }
   }
 
+  // ── 思考进度消息（卡片，支持 patch 更新） ──────────────────────────────
+
+  /**
+   * 发送「正在思考」卡片占位消息，返回 message_id 用于后续 patch 更新。
+   * 使用 interactive 卡片 + update_multi:true，才支持 patch 更新内容。
+   */
+  async sendThinkingCard(chatId: string): Promise<string | null> {
+    const card = buildThinkingCard("⏳ 正在思考...");
+    try {
+      const res = await this.larkClient.im.message.create({
+        params: { receive_id_type: "chat_id" },
+        data: {
+          receive_id: chatId,
+          content: JSON.stringify(card),
+          msg_type: "interactive",
+        },
+      });
+      return res.data?.message_id ?? null;
+    } catch (err) {
+      // 卡片发送失败不阻断主流程，降级为无思考提示
+      void this.client.app.log({
+        body: {
+          service: "chat-channel",
+          level: "warn",
+          message: `[feishu] 发送思考卡片失败: ${String(err)}`,
+        },
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 更新已发送的思考卡片内容。
+   * @param messageId  sendThinkingCard 返回的 message_id
+   * @param statusText 要显示的新状态文本
+   */
+  async updateThinkingCard(messageId: string, statusText: string): Promise<void> {
+    const card = buildThinkingCard(statusText);
+    try {
+      await this.larkClient.im.message.patch({
+        data: { content: JSON.stringify(card) },
+        path: { message_id: messageId },
+      });
+    } catch {
+      // patch 失败静默忽略，不影响最终回复发送
+    }
+  }
+
   // ── 内部工具 ─────────────────────────────────────────────────────────────
 
-  /** 发送"正在思考"占位消息（与最终回复共同构成一次完整回复，非多次回复） */
-  async sendThinking(chatId: string): Promise<void> {
-    await this.larkClient.im.message.create({
-      params: { receive_id_type: "chat_id" },
-      data: {
-        receive_id: chatId,
-        content: JSON.stringify({ text: "⏳ 正在思考..." }),
-        msg_type: "text",
-      },
-    });
-  }
   /** 解析飞书事件，返回标准化 IncomingMessage；无效/重复消息返回 null */
   private parseEvent(data: any): IncomingMessage | null {
     const { message, sender } = data ?? {};
@@ -181,6 +218,27 @@ class FeishuChannel implements ChatChannel {
       text,
     };
   }
+}
+
+// ─── 卡片构建工具 ─────────────────────────────────────────────────────────────
+
+/**
+ * 构建「思考中」飞书卡片结构。
+ * update_multi:true 是 patch 更新的必要条件。
+ * 使用 markdown element 展示文本，支持换行和 emoji。
+ */
+function buildThinkingCard(text: string): object {
+  return {
+    config: { update_multi: true },
+    body: {
+      elements: [
+        {
+          tag: "markdown",
+          content: text,
+        },
+      ],
+    },
+  };
 }
 
 // ─── 工厂函数 ─────────────────────────────────────────────────────────────────
