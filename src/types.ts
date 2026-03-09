@@ -33,7 +33,9 @@ export interface IncomingMessage {
  *   - start(): 启动监听，收到消息时调用 onMessage 回调
  *   - send(): 向指定 target 发送文本回复
  *   - sendThinkingCard(): 发送占位卡片，返回可更新的 ID（可选）
- *   - updateThinkingCard(): 更新占位卡片内容（可选）
+ *   - updateThinkingCard(): 更新占位卡片内容（可选，旧接口向下兼容）
+ *   - patchProgress(): 更新卡片为进度状态，外部摘要+内部详情折叠面板（可选）
+ *   - patchDone(): 更新卡片为完成状态（可选）
  *   - stop(): 优雅关闭（可选）
  */
 export interface ChatChannel {
@@ -60,11 +62,33 @@ export interface ChatChannel {
   sendThinkingCard?(replyTarget: string): Promise<string | null>;
 
   /**
-   * 更新占位消息的内容。
+   * 更新占位消息的内容（旧接口，向下兼容）。
    * @param placeholderId  sendThinkingCard 返回的 ID
    * @param statusText     新状态文本
    */
   updateThinkingCard?(placeholderId: string, statusText: string): Promise<void>;
+
+  /**
+   * 更新思考卡片为进度状态（节流调用）。
+   * 卡片外部显示 summary 摘要，折叠面板内部展示 detail 详细内容。
+   * @param placeholderId  sendThinkingCard 返回的 ID
+   * @param summary        外部摘要文字（如"🤔 正在推理..."）
+   * @param detail         折叠面板内部展开后的详细内容（reasoning / text 累积）
+   * @param stage          当前阶段，用于选择卡片图标和样式
+   */
+  patchProgress?(
+    placeholderId: string,
+    summary: string,
+    detail: string,
+    stage: "reasoning" | "replying"
+  ): Promise<void>;
+
+  /**
+   * 更新思考卡片为完成状态。
+   * @param placeholderId  sendThinkingCard 返回的 ID
+   * @param detail         展开后显示的完整内容（reasoning + text 摘要）
+   */
+  patchDone?(placeholderId: string, detail: string): Promise<void>;
 
   /** 优雅停止渠道（可选）。 */
   stop?(): Promise<void>;
