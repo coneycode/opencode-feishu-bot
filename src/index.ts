@@ -16,7 +16,7 @@
 
 import type { Plugin } from "@opencode-ai/plugin";
 import { join } from "path";
-import { loadDotEnv, SessionManager, extractResponseText, fileLog } from "./session-manager.js";
+import { loadDotEnv, SessionManager, extractResponseText, fileLog, getOpencodeConfigDir } from "./session-manager.js";
 import { feishuChannelFactory } from "./channels/feishu/index.js";
 import { wecomChannelFactory } from "./channels/wecom/index.js";
 import type { ChannelFactory, ChannelName, ChatChannel, IncomingMessage, PluginClient } from "./types.js";
@@ -337,12 +337,10 @@ async function waitForSessionAndReply(
 
 export const ChatChannelPlugin: Plugin = async ({ client }) => {
   // 加载 .env 文件（opencode 不会自动注入）
-  const configDir = join(
-    process.env["HOME"] ?? `/Users/${process.env["USER"] ?? "unknown"}`,
-    ".config",
-    "opencode"
-  );
-  loadDotEnv(join(configDir, ".env"));
+  // 路径逻辑与 opencode 源码保持一致（复现 xdg-basedir 行为）：
+  //   Windows : %APPDATA%\opencode\.env
+  //   macOS/Linux: $XDG_CONFIG_HOME/opencode/.env 或 ~/.config/opencode/.env
+  loadDotEnv(join(getOpencodeConfigDir(), ".env"));
 
   // 确定候选渠道列表
   const enabledNames = resolveEnabledChannels(client);
