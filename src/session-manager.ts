@@ -6,11 +6,49 @@
  */
 
 import { readFileSync, appendFileSync, mkdirSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 import type { PluginClient } from "./types.js";
+
+// ─── 平台路径工具 ────────────────────────────────────────────────────────────
+
+/**
+ * 复现 opencode 使用的 xdg-basedir 路径逻辑，无需额外依赖。
+ *   - Windows : %APPDATA%\opencode  (xdgConfig = APPDATA)
+ *   - macOS/Linux: $XDG_CONFIG_HOME/opencode 或 ~/.config/opencode
+ *
+ * 与 opencode 源码 packages/opencode/src/global/index.ts 保持一致。
+ */
+export function getOpencodeConfigDir(): string {
+  if (process.platform === "win32") {
+    const appdata = process.env["APPDATA"];
+    if (appdata) return join(appdata, "opencode");
+    // APPDATA 未设置时的回退（极少数情况）
+    return join(homedir(), "AppData", "Roaming", "opencode");
+  }
+  // macOS / Linux: 尊重 XDG_CONFIG_HOME，否则 ~/.config
+  const xdgConfig = process.env["XDG_CONFIG_HOME"];
+  return join(xdgConfig ?? join(homedir(), ".config"), "opencode");
+}
+
+/**
+ * 复现 opencode 使用的 xdg-basedir 数据目录逻辑。
+ *   - Windows : %LOCALAPPDATA%\opencode  (xdgData = LOCALAPPDATA)
+ *   - macOS/Linux: $XDG_DATA_HOME/opencode 或 ~/.local/share/opencode
+ */
+export function getOpencodeDataDir(): string {
+  if (process.platform === "win32") {
+    const localappdata = process.env["LOCALAPPDATA"];
+    if (localappdata) return join(localappdata, "opencode");
+    return join(homedir(), "AppData", "Local", "opencode");
+  }
+  const xdgData = process.env["XDG_DATA_HOME"];
+  return join(xdgData ?? join(homedir(), ".local", "share"), "opencode");
+}
 
 // ─── 文件日志 ────────────────────────────────────────────────────────────────
 
-const LOG_DIR = `${process.env["HOME"] ?? "/tmp"}/.local/share/opencode/log`;
+const LOG_DIR = join(getOpencodeDataDir(), "log");
 const LOG_FILE = `${LOG_DIR}/chat-channel.log`;
 
 /**
@@ -118,8 +156,9 @@ export function extractResponseText(parts: unknown[]): string {
 }
 
 /**
- * 从 ~/.config/opencode/.env 读取环境变量并注入 process.env。
+ * 从 opencode 配置目录下的 .env 文件读取环境变量并注入 process.env。
  * opencode 不会自动加载该文件，需插件自行调用。
+ * 使用 getOpencodeConfigDir() 获取正确路径（跨平台）。
  */
 export function loadDotEnv(envPath: string): void {
   try {
